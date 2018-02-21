@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Manage a single partition (info, read, write).
 #
@@ -15,7 +15,7 @@ import zlib
 
 _logger = logging.getLogger("partitions")
 
-GPT_LBA_LEN = 34
+GPT_LBA_LEN = 6
 
 def human_readable(sz):
     suffixes = ('', 'Ki', 'Mi', 'Gi', 'Ti')
@@ -56,7 +56,8 @@ def find_partition(diskinfo, query):
 @contextmanager
 def laf_open_disk(comm):
     # Open whole disk in read/write mode
-    open_cmd = lglaf.make_request(b'OPEN', body=b'\0')
+    open_cmd = lglaf.make_request(b'OPEN', body=b'\x2f\x64\x65\x76\x2f\x62\x6c\x6f\x63\x6b\x2f\x73\x64\x65\x00\x06\xfb\x0f\x00\x00\x30\xb0\x9d\x06\x42\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x30\xb0\x9d\x06\x00\x00\x00\x00\xdd\x60\x1a\x10\x48\x52\x9f\x06\xd8\x4f\x9d\x06\x06\x00\x00\x00\x00\x00\x00\x00\x58\x52\x9f\x06\x00\x00\x00\x00\x0c\x00\x06\x00\x04\x00\x00\x00\x60\xea\xff\x03\xeb\x27\x00\x10\xdc\xea\xff\x03\x30\xb0\x9d\x06\x64\xea\xff\x03\x41\x76\x1a\x10\x00\x00\x61\x06\x00\x00\x00\x00\x30\xb0\x9d\x06\xc0\xea\xff\x03\xbe\xe4\x09\x10\x30\xb0\x9d\x06\xb6\xd9\xee\xd8\x48\x00\x00\x00\xbc\x52\xa7\x06\xdb\xe4\x09\x10\x30\xb0\x9d\x06\x30\xc0\x9d\x06\x30\xc0\x9d\x06\x00\x00\x00\x00\xdc\xea\xff\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\xb6\xd9\xee\xd8\xfc\xea\xff\x03\xf0\x9a\x1d\x10\x48\x00\x00\x00\x10\x00\x00\x00\x08\xeb\xff\x03\x7b\x8c\x03\x10\x10\x00\x00\x00\x8a\x8c\x03\x10\x7e\xd8\xee\xd8\xba\x8c\x03\x10\x00\x6f\x6f\x74\x00\xd9\xee\xd8\xa0\xe8\xff\x03\x9c\xec\xff\x03\x02\x00\x02\x00\xb6\x81\x00\x00\x00\x00\xb6\x01\x00\x00\x00\x00\x00\x00\x00\x00\0')
+    #open_cmd = lglaf.make_request(b'OPEN', body=b'\0')
     if comm.protocol_version >= 0x1000004 or comm.CR_NEEDED == 1:
         lglaf.challenge_response(comm, 2)
     open_header = comm.call(open_cmd)[0]
@@ -95,7 +96,7 @@ def laf_write(comm, fd_num, offset, write_mode, zdata):
     write_cmd = lglaf.make_request(b'WRTE', args=[fd_num, offset, write_mode], body=zdata)
     header = comm.call(write_cmd)[0]
     # Response offset (in bytes) must match calculated offset
-    calc_offset = (offset * 512) & 0xffffffff
+    calc_offset = (offset * 4096) & 0xffffffff
     resp_offset = read_uint32(header, 8)
     assert write_cmd[4:4+4] == header[4:4+4], "Unexpected write response"
     assert calc_offset == resp_offset, \
@@ -134,14 +135,14 @@ def list_partitions(comm, fd_num, part_filter=None, batch=False):
         gpt.show_disk_partitions_info(diskinfo, batch)
 
 # On Linux, one bulk read returns at most 16 KiB. 32 bytes are part of the first
-# header, so remove one block size (512 bytes) to stay within that margin.
+# header, so remove one block size (4096 bytes) to stay within that margin.
 # This ensures that whenever the USB communication gets out of sync, it will
 # always start with a message header, making recovery easier.
-MAX_BLOCK_SIZE = (16 * 1024 - 512) // 512
-BLOCK_SIZE = 512
+MAX_BLOCK_SIZE = (16 * 1024 - 4096) // 4096
+BLOCK_SIZE = 4096
 
 def dump_partition(comm, disk_fd, local_path, part_offset, part_size, batch=False):
-    # Read offsets must be a multiple of 512 bytes, enforce this
+    # Read offsets must be a multiple of 4096 bytes, enforce this
     read_offset = BLOCK_SIZE * (part_offset // BLOCK_SIZE)
     end_offset = part_offset + part_size
     unaligned_bytes = part_offset % BLOCK_SIZE
@@ -194,7 +195,7 @@ def write_partition(comm, disk_fd, local_path, part_offset, part_size, batch):
         raise RuntimeError("Unaligned partition writes are not supported yet")
 
     # Sanity check
-    assert part_offset >= 34 * 512, "Will not allow overwriting GPT scheme"
+    assert part_offset >= 6 * 4096, "Will not allow overwriting GPT scheme"
 
     # disable RESTORE until newer LAF communication is fixed! this will not work atm!
     if comm.protocol_version >= 0x1000001:
@@ -281,8 +282,8 @@ def wipe_partition(comm, disk_fd, part_offset, part_size, batch):
     sector_count = part_size // BLOCK_SIZE
 
     # Sanity check
-    assert sector_start >= 34, "Will not allow overwriting GPT scheme"
-    # Discarding no sectors or more than 512 GiB is a bit stupid.
+    assert sector_start >= 6, "Will not allow overwriting GPT scheme"
+    # Discarding no sectors or more than 4096 GiB is a bit stupid.
     assert 0 < sector_count < 1024**3, "Invalid sector count %d" % sector_count
 
     laf_erase(comm, disk_fd, sector_start, sector_count)
