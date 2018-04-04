@@ -15,7 +15,7 @@ import zlib
 
 _logger = logging.getLogger("partitions")
 
-GPT_LBA_LEN = 6
+GPT_LBA_LEN = 34
 
 def human_readable(sz):
     suffixes = ('', 'Ki', 'Mi', 'Gi', 'Ti')
@@ -56,12 +56,7 @@ def find_partition(diskinfo, query):
 @contextmanager
 def laf_open_disk(comm):
     # Open whole disk in read/write mode
-    # sde
-    open_cmd = lglaf.make_request(b'OPEN', body=b'\x2f\x64\x65\x76\x2f\x62\x6c\x6f\x63\x6b\x2f\x73\x64\x65\x00\x06\xfb\x0f\x00\x00\x30\xb0\x9d\x06\x42\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x30\xb0\x9d\x06\x00\x00\x00\x00\xdd\x60\x1a\x10\x48\x52\x9f\x06\xd8\x4f\x9d\x06\x06\x00\x00\x00\x00\x00\x00\x00\x58\x52\x9f\x06\x00\x00\x00\x00\x0c\x00\x06\x00\x04\x00\x00\x00\x60\xea\xff\x03\xeb\x27\x00\x10\xdc\xea\xff\x03\x30\xb0\x9d\x06\x64\xea\xff\x03\x41\x76\x1a\x10\x00\x00\x61\x06\x00\x00\x00\x00\x30\xb0\x9d\x06\xc0\xea\xff\x03\xbe\xe4\x09\x10\x30\xb0\x9d\x06\xb6\xd9\xee\xd8\x48\x00\x00\x00\xbc\x52\xa7\x06\xdb\xe4\x09\x10\x30\xb0\x9d\x06\x30\xc0\x9d\x06\x30\xc0\x9d\x06\x00\x00\x00\x00\xdc\xea\xff\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\xb6\xd9\xee\xd8\xfc\xea\xff\x03\xf0\x9a\x1d\x10\x48\x00\x00\x00\x10\x00\x00\x00\x08\xeb\xff\x03\x7b\x8c\x03\x10\x10\x00\x00\x00\x8a\x8c\x03\x10\x7e\xd8\xee\xd8\xba\x8c\x03\x10\x00\x6f\x6f\x74\x00\xd9\xee\xd8\xa0\xe8\xff\x03\x9c\xec\xff\x03\x02\x00\x02\x00\xb6\x81\x00\x00\x00\x00\xb6\x01\x00\x00\x00\x00\x00\x00\x00\x00\0')
-    # sda
-    #open_cmd = lglaf.make_request(b'OPEN', body=b'\x2f\x64\x65\x76\x2f\x62\x6c\x6f\x63\x6b\x2f\x73\x64\x61\x00\x06\xfb\x0f\x00\x00\x18\x80\x9d\x06\x42\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x18\x80\x9d\x06\x00\x00\x00\x00\xdd\x60\x1a\x10\x48\x52\x9f\x06\xd8\x4f\x9d\x06\x03\x00\x00\x00\x00\x00\x00\x00\x58\x52\x9f\x06\x00\x00\x00\x00\x0c\x00\x03\x00\x04\x00\x00\x00\x60\xea\xff\x03\xeb\x27\x00\x10\xdc\xea\xff\x03\x18\x80\x9d\x06\x64\xea\xff\x03\x41\x76\x1a\x10\x00\x00\x61\x06\x00\x00\x00\x00\x18\x80\x9d\x06\xc0\xea\xff\x03\xbe\xe4\x09\x10\x18\x80\x9d\x06\xb6\xd9\xee\xd8\x68\x00\x00\x00\xbc\x52\xa7\x06\xdb\xe4\x09\x10\x18\x80\x9d\x06\x18\x90\x9d\x06\x18\x90\x9d\x06\x00\x00\x00\x00\xdc\xea\xff\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\xb6\xd9\xee\xd8\xfc\xea\xff\x03\xf0\x9a\x1d\x10\x68\x00\x00\x00\x10\x00\x00\x00\x08\xeb\xff\x03\x7b\x8c\x03\x10\x10\x00\x00\x00\x8a\x8c\x03\x10\x7e\xd8\xee\xd8\xba\x8c\x03\x10\x00\x50\x5f\x54\x00\xd9\xee\xd8\xa0\xe8\xff\x03\x9c\xec\xff\x03\x02\x00\x02\x00\xb6\x81\x00\x00\x00\x00\xb6\x01\x00\x00\x00\x00\x00\x00\x00\x00')
-
-    #open_cmd = lglaf.make_request(b'OPEN', body=b'\0')
+    open_cmd = lglaf.make_request(b'OPEN', body=b'\0')
     if comm.protocol_version >= 0x1000004 or comm.CR_NEEDED == 1:
         lglaf.challenge_response(comm, 2)
     open_header = comm.call(open_cmd)[0]
@@ -100,11 +95,37 @@ def laf_write(comm, fd_num, offset, write_mode, zdata):
     write_cmd = lglaf.make_request(b'WRTE', args=[fd_num, offset, write_mode], body=zdata)
     header = comm.call(write_cmd)[0]
     # Response offset (in bytes) must match calculated offset
-    calc_offset = (offset * 4096) & 0xffffffff
+    calc_offset = (offset * 512) & 0xffffffff
     resp_offset = read_uint32(header, 8)
     assert write_cmd[4:4+4] == header[4:4+4], "Unexpected write response"
     assert calc_offset == resp_offset, \
             "Unexpected write response: %#x != %#x" % (calc_offset, resp_offset)
+
+def laf_copy(comm, fd_num, src_offset, size, dst_offset):
+    """This will copy blocks from one location to another on the same block device"""
+    copy_cmd = lglaf.make_request(b'COPY', args=[fd_num, src_offset, size, dst_offset])
+    comm.call(copy_cmd)
+    # Response is unknown at this time
+
+def laf_ioct(comm, fd_num, param):
+    """This manipulates ioctl for a given file descriptor"""
+    """The only known IOCT param is 0x1261 which enables write"""
+    ioct_cmd = lglaf.make_request(b'IOCT', args=[fd_num, param])
+    comm.call(ioct_cmd)
+
+def laf_misc_write(comm, size, data):
+    """This is for writting to the misc partition."""
+    """You can specify an offset, but that is currently not implemented"""
+    misc_offset = 0
+    write_cmd = lglaf.make_request(b'MISC', args=[b'WRTE', misc_offset, size], body=data)
+    #header = comm.call(write_cmd)[0]
+    comm.call(write_cmd)
+    # The response for MISC WRTE isn't understood yet
+    #calc_offset = (offset * 512) & 0xffffffff
+    #resp_offset = read_uint32(header, 8)
+    #assert write_cmd[4:4+4] == header[4:4+4], "Unexpected write response"
+    #assert calc_offset == resp_offset, \
+    #        "Unexpected write response: %#x != %#x" % (calc_offset, resp_offset)
 
 def open_local_writable(path):
     if path == '-':
@@ -139,14 +160,14 @@ def list_partitions(comm, fd_num, part_filter=None, batch=False):
         gpt.show_disk_partitions_info(diskinfo, batch)
 
 # On Linux, one bulk read returns at most 16 KiB. 32 bytes are part of the first
-# header, so remove one block size (4096 bytes) to stay within that margin.
+# header, so remove one block size (512 bytes) to stay within that margin.
 # This ensures that whenever the USB communication gets out of sync, it will
 # always start with a message header, making recovery easier.
-MAX_BLOCK_SIZE = (16 * 1024 - 4096) // 4096
-BLOCK_SIZE = 4096
+MAX_BLOCK_SIZE = (16 * 1024 - 512) // 512
+BLOCK_SIZE = 512
 
 def dump_partition(comm, disk_fd, local_path, part_offset, part_size, batch=False):
-    # Read offsets must be a multiple of 4096 bytes, enforce this
+    # Read offsets must be a multiple of 512 bytes, enforce this
     read_offset = BLOCK_SIZE * (part_offset // BLOCK_SIZE)
     end_offset = part_offset + part_size
     unaligned_bytes = part_offset % BLOCK_SIZE
@@ -199,7 +220,7 @@ def write_partition(comm, disk_fd, local_path, part_offset, part_size, batch):
         raise RuntimeError("Unaligned partition writes are not supported yet")
 
     # Sanity check
-    assert part_offset >= 6 * 4096, "Will not allow overwriting GPT scheme"
+    assert part_offset >= 34 * 512, "Will not allow overwriting GPT scheme"
 
     # disable RESTORE until newer LAF communication is fixed! this will not work atm!
     if comm.protocol_version >= 0x1000001:
@@ -231,7 +252,7 @@ def write_partition(comm, disk_fd, local_path, part_offset, part_size, batch):
         old_pos = -1
         read_size = 1048576  # 1 MB (anything higher will have 0 effect but this speeds up a lot)
         #read_size = 16384   # 16 KB as a usual USB block is
-        write_mode = 0x18    # needed to be send at start of WRTE on some devices
+        write_mode = 0x20    # needed to be send at start of WRTE on some devices
 
         while write_offset < end_offset:
 
@@ -259,7 +280,7 @@ def write_partition(comm, disk_fd, local_path, part_offset, part_size, batch):
                   print_progress(curr_progress, written, part_size)
 
             write_offset += chunksize
-            write_mode = 0x09
+            write_mode = 0x00
             if len(data) != chunksize:
                 break # Short read, end of file
 
@@ -268,6 +289,54 @@ def write_partition(comm, disk_fd, local_path, part_offset, part_size, batch):
     else:
         _logger.error("Your installed firmware does not support writing atm. sorry.")
 
+def write_misc_partition(comm, fd_num, local_path, part_offset, part_size, batch):
+    write_offset = BLOCK_SIZE * (part_offset // BLOCK_SIZE)
+    end_offset = part_offset + part_size
+    if part_offset % BLOCK_SIZE:
+        raise RuntimeError("Unaligned partition writes are not supported yet")
+
+    # Sanity check
+    assert part_offset >= 34 * 512, "Will not allow overwriting GPT scheme"
+
+    with open_local_readable(local_path) as f:
+        try:
+            length = f.seek(0, 2)
+        except OSError:
+            # Will try to write up to the end of the file.
+            _logger.debug("File %s is not seekable, length is unknown",
+                    local_path)
+        else:
+            # Restore position and check if file is small enough
+            f.seek(0)
+            if length > part_size:
+                raise RuntimeError("File size %d is larger than partition "
+                        "size %d" % (length, part_size))
+            # Some special bytes report 0 (such as /dev/zero)
+            if length > 0:
+                _logger.debug("Will write %d bytes", length)
+
+        misc_start = 262144
+        written = 0
+        while write_offset < end_offset:
+            # We have to get the size of misc, but it is hardcoded for now
+            chunksize = 10240
+            #chunksize = min(end_offset - write_offset, BLOCK_SIZE * MAX_BLOCK_SIZE)
+            data = f.read(chunksize)
+            if not data:
+                break # End of file
+            if len(data) != chunksize:
+                chunksize = len(data)
+            laf_misc_write(comm, chunksize, data)
+            laf_ioct(comm, fd_num,0x1261)
+            laf_copy(comm, fd_num, misc_start, chunksize, write_offset // BLOCK_SIZE)
+            laf_ioct(comm, fd_num,0x1261)
+
+            #laf_write(comm, disk_fd, write_offset // BLOCK_SIZE, data)
+            written += len(data)
+            write_offset += chunksize
+            if len(data) != chunksize:
+                break # Short read, end of file
+        _logger.info("Done after writing %d bytes from %s", written, local_path)
 
 def print_progress(i, current_val, max_val):
     current_val = int(current_val / 1024)
@@ -286,8 +355,8 @@ def wipe_partition(comm, disk_fd, part_offset, part_size, batch):
     sector_count = part_size // BLOCK_SIZE
 
     # Sanity check
-    assert sector_start >= 6, "Will not allow overwriting GPT scheme"
-    # Discarding no sectors or more than 4096 GiB is a bit stupid.
+    assert sector_start >= 34, "Will not allow overwriting GPT scheme"
+    # Discarding no sectors or more than 512 GiB is a bit stupid.
     assert 0 < sector_count < 1024**3, "Invalid sector count %d" % sector_count
 
     laf_erase(comm, disk_fd, sector_start, sector_count)
@@ -305,6 +374,8 @@ parser.add_argument("--dump", metavar="LOCAL_PATH",
         help="Dump partition to file ('-' for stdout)")
 parser.add_argument("--restore", metavar="LOCAL_PATH",
         help="Write file to partition on device ('-' for stdin)")
+parser.add_argument("--restoremisc", metavar="LOCAL_PATH",
+        help="Write file to partition on device with MISC WRTE / COPY ('-' for stdin)")
 parser.add_argument("--wipe", action='store_true',
         help="TRIMs a partition")
 parser.add_argument("partition", nargs='?',
@@ -320,10 +391,10 @@ def main():
     logging.basicConfig(format='%(asctime)s %(name)s: %(levelname)s: %(message)s',
             level=logging.DEBUG if args.debug else logging.INFO)
 
-    actions = (args.list, args.dump, args.restore, args.wipe)
+    actions = (args.list, args.dump, args.restore, args.restoremisc, args.wipe)
     if sum(1 if x else 0 for x in actions) != 1:
         parser.error("Please specify one action from"
-        " --list / --dump / --restore / --wipe")
+        " --list / --dump / --restore /--restoremisc / --wipe")
     if not args.partition and (args.dump or args.restore or args.wipe):
         parser.error("Please specify a partition")
 
@@ -370,6 +441,11 @@ def main():
                     write_partition(comm, disk_fd, args.restore, part_offset, part_size, False)
                 else:
                     write_partition(comm, disk_fd, args.restore, part_offset, part_size, True)
+            elif args.restoremisc:
+                if not args.batch:
+                    write_misc_partition(comm, disk_fd, args.restoremisc, part_offset, part_size, False)
+                else:
+                    write_misc_partition(comm, disk_fd, args.restoremisc, part_offset, part_size, True)
             elif args.wipe:
                 if not args.batch:
                     wipe_partition(comm, disk_fd, part_offset, part_size, False)
