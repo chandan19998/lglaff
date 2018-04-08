@@ -19,14 +19,12 @@ Contents of this repository:
 ## Requirements
 LGLAF.py depends on:
 
- - Python 3: https://www.python.org/
+ - Python 2.7 or 3: https://www.python.org/
  - (Windows) LG driver,
    [LGMobileDriver\_WHQL\_Ver\_4.0.3.exe](http://18d5a.wpc.azureedge.net/8018D5A/tool/dn/downloader.dev?fileKey=UW00120120425)
    (12986920 bytes,
    sha256sum: 86e893b7f5da7f7d2656d9ce2563f082271983bb63903d0ed5cb279c560db459)
- - PyUSB: pip install PyUSB (use pip3 on Linux)
- - cryptography: pip install cryptography (use pip3 on Linux)
- - cryptdome: pip install cryptdome (use pip3 on Linux)
+ - (Linux) PyUSB: https://walac.github.io/pyusb/
 
 On Linux, you must also install
 [rules.d/42-usb-lglaf.rules](rules.d/42-usb-lglaf.rules) to `/etc/udev/rules.d/`
@@ -39,10 +37,6 @@ Tested with:
  - LG G2 (VS985).
  - LG G4 (VS986) on Linux (Python 3.5) and Windows.
  - LG G4 (H810,H811,H812,H815) on 64 bit Arch Linux | [FWUL](https://tinyurl.com/FWULatXDA) (Python 2.7.13, pyusb 1.0.0-5, libusb 1.0.21-2)
- - LG V20 (H918, H910)
- - LG V10 (H901)
- - LG G6 (H872)
-If you don't install these rules, you will have to use sudo.
 
 ## Usage
 This tool provides an interactive shell where you can execute commands in
@@ -62,13 +56,36 @@ Now you can issue commands using the interactive shell:
     Type a shell command to execute or "exit" to leave.
     # pwd
     /
-On current versions of lafd there is a very limited set of commands that you can run:
-ls, lsof, lsmod, dmesg, TODO: list the rest
+    # uname -a
+    -: uname: not found
+    # cat /proc/version
+    Linux version 3.4.0-perf-gf95c7ee (lgmobile@LGEARND12B2) (gcc version 4.8 (GCC) ) #1 SMP PREEMPT Tue Aug 18 19:25:04 KST 2015
+    # exit
 
+Some devices require a challenge/response before communication is possible (only needed once after entering download mode):
+
+    (venv)[peter@al lglaf]$ python auth.py --debug
+    LGLAF.py: DEBUG: Using endpoints 83 (IN), 02 (OUT)
+    auth: DEBUG: Challenge: c4:af:ff:aa
+    auth: DEBUG: Response: 12:7a:c2:c2:87:0e:06:5d:a2:a4:c3:8c:a2:12:12:12
 
 When commands are piped to stdin (or given via `-c`), the prompt is hidden:
 
- TODO: list new examples 
+    (venv)[peter@al lglaf]$ echo mount | python lglaf.py
+    rootfs / rootfs rw 0 0
+    tmpfs /dev tmpfs rw,seclabel,nosuid,relatime,size=927232k,nr_inodes=87041,mode=755 0 0
+    devpts /dev/pts devpts rw,seclabel,relatime,mode=600 0 0
+    proc /proc proc rw,relatime 0 0
+    sysfs /sys sysfs rw,seclabel,relatime 0 0
+    selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0
+    debugfs /sys/kernel/debug debugfs rw,relatime 0 0
+    /dev/block/platform/msm_sdcc.1/by-name/system /system ext4 ro,seclabel,noatime,data=ordered 0 0
+    /dev/block/platform/msm_sdcc.1/by-name/userdata /data ext4 rw,seclabel,nosuid,nodev,noatime,noauto_da_alloc,resuid=1000,errors=continue,data=ordered 0 0
+    /dev/block/platform/msm_sdcc.1/by-name/persist /persist ext4 ro,seclabel,nosuid,nodev,relatime,data=ordered 0 0
+    /dev/block/platform/msm_sdcc.1/by-name/cache /cache ext4 rw,seclabel,nosuid,nodev,noatime,data=ordered 0 0
+    (venv)[peter@al lglaf]$ python lglaf.py -c date
+    Thu Jan  1 01:30:06 GMT 1970
+    (venv)[peter@al lglaf]$
 
 ## Advanced usage
 If you know the [protocol](protocol.md), you can send commands directly. Each
@@ -96,15 +113,6 @@ Execute a shell command (command EXEC, no args, with body):
     $ ./lglaf.py --debug --skip-hello -c '!EXEC  id\0'
     LGLAF.py: DEBUG: Header: b'EXEC' b'\0\0\0\0' b'\0\0\0\0' b'\0\0\0\0' b'\0\0\0\0' b'/\0\0\0' b'\x8dK\0\0' b'\xba\xa7\xba\xbc'
     uid=0(root) gid=0(root) context=u:r:toolbox:s0
-
-## Backing up and flashing partitons
-The partitions.py command can be used to backup and restore partitions. For now, in UFS devices, it can only write to /dev/block/sda.
-
- - $ ./partitions.py --dump recovery.img recovery
- - $ ./partitions.py --restoremisc twrp.img recovery
- - $ ./partitions.py --restoremisc twrp.img laf
-
-On eMMC device, revcovery can be written to directly, on UFS device, TWRP has to be written to laf. 
 
 ## License
 See the [LICENSE](LICENSE) file for the license (MIT).
