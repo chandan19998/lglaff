@@ -15,26 +15,37 @@ def read_uint32(data, offset):
     return struct.unpack_from('<I', data, offset)[0]
 
 def get_file_size(comm, path):
-    shell_command = b'stat -t ' + path.encode('utf8') + b'\0'
+    shell_command = b'ls -ld ' + path.encode('utf8') + b'\0'
     output = comm.call(lglaf.make_request(b'EXEC', body=shell_command))[1]
     output = output.decode('utf8')
-    if not output.startswith(path + ' '):
-        _logger.debug("Output: %r", output)
-        raise RuntimeError("Cannot get filesize for %s" % path)
-    size_bytes = output.lstrip(path + ' ').split()[0]
-    return int(size_bytes)
+    if not len(output):
+        raise RuntimeError("Cannot find file %s" % path)
+    # Example output: "-rwxr-x--- root     root       496888 1970-01-01 00:00 lafd"
+    # Accommodate for varying ls output
+    fields = output.split()
+    if len(fields) >= 7:
+        for field in fields[3:]:
+            if field.isdigit():
+                return int(field)
+
+    _logger.debug("ls output: %s", output)
+    raise RuntimeError("Cannot find filesize for path %s" % path)
 
 @contextmanager
 def laf_open_ro(comm, filename):
     filename = filename.encode('utf8') + b'\0'
     # Open a single file in readonly mode
     open_cmd = lglaf.make_request(b'OPEN', body=filename)
+    if comm.protocol_version >= 0x1000004 or comm.CR_NEEDED == 1:
+        lglaf.challenge_response(comm, 2)
     open_header = comm.call(open_cmd)[0]
     fd_num = read_uint32(open_header, 4)
     try:
         yield fd_num
     finally:
         close_cmd = lglaf.make_request(b'CLSE', args=[fd_num])
+        if comm.protocol_version >= 0x1000004 or comm.CR_NEEDED == 1:
+            lglaf.challenge_response(comm, 4)
         comm.call(close_cmd)
 
 def laf_read(comm, fd_num, offset, size):
@@ -53,9 +64,8 @@ def laf_read(comm, fd_num, offset, size):
 MAX_BLOCK_SIZE = (16 * 1024 - 512) // 512
 BLOCK_SIZE = 512
 
-def dump_file(comm, file_fd, output_file, size):
+def dump_file(comm, file_fd, output_file, size, offset=0):
     with open_local_writable(output_file) as f:
-        offset = 0
         while offset < size:
             chunksize = min(size - offset, BLOCK_SIZE * MAX_BLOCK_SIZE)
             data = laf_read(comm, file_fd, offset // BLOCK_SIZE, chunksize)
@@ -72,6 +82,10 @@ def open_local_writable(path):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--debug", action='store_true', help="Enable debug messages")
+parser.add_argument("--offset", type=int, default=0,
+        help="Start reading the file from an offset")
+parser.add_argument("--size", type=int,
+        help="Override file size (useful for files in /proc)")
 parser.add_argument("file", help="File path on the device")
 parser.add_argument("output_file",
         help="Local output file (use '-' for stdout)")
@@ -84,15 +98,25 @@ def main():
     comm = lglaf.autodetect_device()
     with closing(comm):
         lglaf.try_hello(comm)
+        _logger.debug("Using Protocol version: 0x%x" % comm.protocol_version)
 
         # Be careful: a too large read size will result in a hang while LAF
         # tries to read more data, requiring a reset.
-        size = get_file_size(comm, args.file)
+        if args.size:
+            offset = args.offset
+            size = args.size
+        else:
+            offset = args.offset
+            size = get_file_size(comm, args.file)
+            if offset > size:
+                _logger.warning("Offset %d is larger than the detected size %d",
+                        offset, size)
+            size -= offset
         if size > 0:
             _logger.debug("File size is %d", size)
             with laf_open_ro(comm, args.file) as file_fd:
                 _logger.debug("Opened fd %d for file %s", file_fd, args.file)
-                dump_file(comm, file_fd, args.output_file, size)
+                dump_file(comm, file_fd, args.output_file, size, offset)
         else:
             _logger.warning("Not a file or zero size, not writing file")
 
